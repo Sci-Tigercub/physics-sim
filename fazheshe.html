@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>光的反射折射演示（角度标注‑最终修正）</title>
+<style>
+body{font-family:Arial; padding:20px; background:#f7f7f7;}
+canvas{border:1px solid #333; background:#fff;}
+.ctrl{margin:12px 0;}
+label{margin-right:8px;}
+</style>
+</head>
+<body>
+<h3>光线反射 & 折射演示（角度圆弧标注）</h3>
+<div class="ctrl">
+  <label>入射角：<span id="angleText">30.0</span>°</label>
+  <input id="angleSlider" type="range" min="0" max="85" value="30" step="1" style="width:400px;">
+</div>
+<div class="ctrl">
+  <label>介质2折射率 n₂：<span id="n2Text">1.5</span></label>
+  <input id="n2Slider" type="range" min="11" max="20" value="15" step="1" style="width:400px;">
+</div>
+<div>介质1 n₁ = 1.0（空气）</div>
+<canvas id="c" width="700" height="450"></canvas>
+
+<script>
+const canvas = document.getElementById("c");
+const ctx = canvas.getContext("2d");
+const W = canvas.width, H = canvas.height;
+const O = {x: W / 2, y: H * 0.5};
+const boundaryY = O.y;
+const rayLen = 180;
+const arcR = 55;
+
+const angleSlider = document.getElementById("angleSlider");
+const angleText = document.getElementById("angleText");
+const n2Slider = document.getElementById("n2Slider");
+const n2Text = document.getElementById("n2Text");
+
+function render(deg, n2){
+  ctx.clearRect(0,0,W,H);
+  const theta1 = deg * Math.PI / 180;
+  const n1 = 1.0;
+
+  ctx.fillStyle = "rgba(120,180,255,0.35)";
+  ctx.fillRect(0, boundaryY, W, H - boundaryY);
+
+  ctx.beginPath();
+  ctx.moveTo(0, boundaryY);
+  ctx.lineTo(W, boundaryY);
+  ctx.strokeStyle="#333";
+  ctx.lineWidth=2;
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.setLineDash([6,6]);
+  ctx.moveTo(O.x, 10);
+  ctx.lineTo(O.x, H - 10);
+  ctx.strokeStyle="#888";
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const inX = O.x - rayLen * Math.sin(theta1);
+  const inY = O.y - rayLen * Math.cos(theta1);
+
+  ctx.beginPath();
+  ctx.moveTo(inX, inY);
+  ctx.lineTo(O.x, O.y);
+  ctx.strokeStyle="red"; ctx.lineWidth=2; ctx.stroke();
+
+  const refX = O.x + rayLen * Math.sin(theta1);
+  const refY = O.y - rayLen * Math.cos(theta1);
+  ctx.beginPath();
+  ctx.moveTo(O.x, O.y);
+  ctx.lineTo(refX, refY);
+  ctx.strokeStyle="orange"; ctx.lineWidth=2; ctx.stroke();
+
+  const sinT1 = Math.sin(theta1);
+  let totalReflect = false;
+  let refrX, refrY, t2;
+  if(n1>n2 && sinT1> n2/n1){
+    totalReflect = true;
+  }else{
+    const sinT2 = n1 / n2 * sinT1;
+    t2 = Math.asin(sinT2);
+    refrX = O.x + rayLen * Math.sin(t2);
+    refrY = O.y + rayLen * Math.cos(t2);
+  }
+  if(!totalReflect){
+    ctx.beginPath();
+    ctx.moveTo(O.x, O.y);
+    ctx.lineTo(refrX, refrY);
+    ctx.strokeStyle="#0066ff"; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  ctx.lineWidth = 1.5;
+  // 入射角 θ₁：法线(向上‑π/2)逆时针转到入射光线
+  ctx.beginPath();
+  ctx.arc(O.x,O.y,arcR, -Math.PI/2-theta1, -Math.PI/2);
+  ctx.strokeStyle="#d00"; ctx.stroke();
+  ctx.fillStyle="#d00";
+  ctx.fillText("θ₁ 入射角", O.x - arcR*1.3, O.y - arcR*0.65);
+
+  // 反射角 θᵣ：法线(向上‑π/2)顺时针转到反射光线
+  ctx.beginPath();
+  ctx.arc(O.x,O.y,arcR, -Math.PI/2, -Math.PI/2+theta1);
+  ctx.strokeStyle="#f80"; ctx.stroke();
+  ctx.fillStyle="#f80";
+  ctx.fillText("θᵣ 反射角", O.x + arcR*0.35, O.y - arcR*0.65);
+
+  // 【已修复】折射角 θ₂：法线(向下 π/2) 逆时针转到折射光线
+  if(!totalReflect){
+    ctx.beginPath();
+    ctx.arc(O.x,O.y,arcR, Math.PI/2, Math.PI/2 - t2, true);
+    ctx.strokeStyle="#0066ff"; ctx.stroke();
+    ctx.fillStyle="#0066ff";
+    ctx.fillText("θ₂ 折射角", O.x + arcR*0.4, O.y + arcR*0.9);
+  }
+
+  ctx.beginPath();
+  ctx.arc(inX, inY,7,0,Math.PI*2);
+  ctx.fillStyle="#c00"; ctx.fill();
+
+  ctx.font = "14px Arial";
+  ctx.fillStyle="#222";
+  ctx.fillText(`入射角 = ${deg.toFixed(1)}°`,20,26);
+  if(totalReflect){
+    ctx.fillText("⚠️ 全反射，无折射光线", 20, 48);
+  }else{
+    const t2deg = (t2*180/Math.PI).toFixed(1);
+    ctx.fillText(`折射角 = ${t2deg}°`, 20, 48);
+  }
+}
+
+function update(){
+  const angleVal = Number(angleSlider.value);
+  const n2Val = Number(n2Slider.value)/10;
+  angleText.textContent = angleVal.toFixed(1);
+  n2Text.textContent = n2Val.toFixed(1);
+  render(angleVal, n2Val);
+}
+
+angleSlider.oninput = update;
+n2Slider.oninput = update;
+update();
+</script>
+</body>
+</html>
