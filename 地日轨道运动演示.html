@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>地球‑太阳椭圆轨道演示（速度+引力双矢量）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+        body {
+            background-color: #11141c;
+            color: #fff;
+            padding: 20px;
+        }
+        .wrap {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            font-size: 22px;
+        }
+        .container {
+            display: flex;
+            gap:12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        canvas {
+            border: 1px solid #444;
+            background:#000;
+            border-radius: 6px;
+        }
+        .control-area{
+            margin-top:16px;
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            justify-content:center;
+        }
+        button{
+            padding:8px 18px;
+            border:none;
+            border-radius:6px;
+            background:#3b7cd3;
+            color:white;
+            font-size:15px;
+            cursor:pointer;
+        }
+        .info{
+            margin-top:12px;
+            text-align:center;
+            font-size:16px;
+            line-height:1.8;
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>地球‑太阳椭圆轨道演示（速度+引力双矢量）</h1>
+    <div class="container">
+        <canvas id="orbitCanvas" width="520" height="420"></canvas>
+        <canvas id="vtCanvas" width="320" height="420"></canvas>
+    </div>
+    <div class="control-area">
+        <button id="btnStart">开始</button>
+        <button id="btnPause">暂停</button>
+        <button id="btnReset">重置</button>
+    </div>
+    <div class="info">
+        <div>椭圆轨道周长 L = <span id="lenText">0.00</span> px</div>
+        <div>理论瞬时切线速度 v = <span id="vText">0.00</span> px/s</div>
+    </div>
+</div>
+
+<script>
+    const orbitCanvas = document.getElementById("orbitCanvas");
+    const orbitCtx = orbitCanvas.getContext("2d");
+    const vtCanvas = document.getElementById("vtCanvas");
+    const vtCtx = vtCanvas.getContext("2d");
+
+    const btnStart = document.getElementById("btnStart");
+    const btnPause = document.getElementById("btnPause");
+    const btnReset = document.getElementById("btnReset");
+    const lenText = document.getElementById("lenText");
+    const vText = document.getElementById("vText");
+
+    const cx = orbitCanvas.width / 2;
+    const cy = orbitCanvas.height / 2;
+    const a = 180;
+    const b = 130;
+    const e = Math.sqrt(1 - (b*b)/(a*a));
+    const orbitLength = Math.PI*( 3*(a+b) - Math.sqrt((3*a+b)*(a+3*b)) );
+    lenText.innerText = orbitLength.toFixed(2);
+
+    //太阳：右侧焦点
+    const sunX = cx + a * e;
+    const sunY = cy;
+    const periX = cx + a;
+    const periY = cy;
+    const apoX = cx - a;
+    const apoY = cy;
+
+    let M = 0;
+    const n = 0.75;
+    const GM = 1200;
+    const dt = 0.022;
+
+    let running = false;
+    let animId;
+    let vList = [];
+    const maxVPoints = 280;
+    const velScale = 6;
+    const forceScale = 0.4;
+
+    function solveKepler(M_val, ecc){
+        let E = M_val;
+        for(let i=0;i<12;i++){
+            E = E - (E - ecc*Math.sin(E) - M_val)/(1 - ecc*Math.cos(E));
+        }
+        return E;
+    }
+
+    function getState(M_val){
+        const E = solveKepler(M_val, e);
+        const x = cx + a * Math.cos(E);
+        const y = cy + b * Math.sin(E);
+        const dx = x - sunX;
+        const dy = y - sunY;
+        const r = Math.hypot(dx, dy);
+        const v = Math.sqrt(GM*(2/r - 1/a));
+
+        //切线方向
+        const dxE = -a * Math.sin(E);
+        const dyE =  b * Math.cos(E);
+        const tangentLen = Math.hypot(dxE, dyE);
+        const tx = dxE / tangentLen;
+        const ty = dyE / tangentLen;
+
+        //引力方向（指向太阳）
+        const frx = (sunX - x)/r;
+        const fry = (sunY - y)/r;
+        const F = GM/(r*r);
+
+        return {x,y,r,v, tx, ty, frx, fry, F};
+    }
+
+    function physicsStep(){
+        M += n * dt;
+        const s = getState(M);
+        vList.push(s.v);
+        if(vList.length>maxVPoints) vList.shift();
+    }
+
+    function drawArrow(ctx, fromX, fromY, toX, toY, color="#ffffff"){
+        const headLen = 7;
+        const angle = Math.atan2(toY-fromY, toX-fromX);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(toX, toY);
+        ctx.lineTo(
+            toX - headLen*Math.cos(angle - Math.PI/6),
+            toY - headLen*Math.sin(angle - Math.PI/6)
+        );
+        ctx.lineTo(
+            toX - headLen*Math.cos(angle + Math.PI/6),
+            toY - headLen*Math.sin(angle + Math.PI/6)
+        );
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawOrbit(){
+        orbitCtx.fillStyle="#000";
+        orbitCtx.fillRect(0,0,orbitCanvas.width,orbitCanvas.height);
+
+        orbitCtx.strokeStyle="#4477aa";
+        orbitCtx.lineWidth=1.5;
+        orbitCtx.beginPath();
+        orbitCtx.ellipse(cx, cy, a, b, 0, 0, Math.PI*2);
+        orbitCtx.stroke();
+
+        orbitCtx.fillStyle="#ff3333";
+        orbitCtx.beginPath();
+        orbitCtx.arc(periX, periY,5,0,Math.PI*2);
+        orbitCtx.fill();
+        orbitCtx.fillStyle="#33ff33";
+        orbitCtx.beginPath();
+        orbitCtx.arc(apoX, apoY,5,0,Math.PI*2);
+        orbitCtx.fill();
+
+        orbitCtx.fillStyle="#ffdd00";
+        orbitCtx.beginPath();
+        orbitCtx.arc(sunX, sunY, 16, 0, Math.PI*2);
+        orbitCtx.fill();
+
+        const s = getState(M);
+        vText.innerText = s.v.toFixed(2);
+
+        //白色：速度矢量
+        const vLen = s.v * velScale;
+        drawArrow(orbitCtx, s.x, s.y, s.x + s.tx*vLen, s.y + s.ty*vLen, "#ffffff");
+        //红色：引力矢量
+        const fLen = s.F * forceScale;
+        drawArrow(orbitCtx, s.x, s.y, s.x + s.frx*fLen, s.y + s.fry*fLen, "#ff4444");
+
+        orbitCtx.fillStyle="#3388ff";
+        orbitCtx.beginPath();
+        orbitCtx.arc(s.x, s.y,7,0,Math.PI*2);
+        orbitCtx.fill();
+    }
+
+    function drawVtGraph(){
+        vtCtx.fillStyle="#000";
+        vtCtx.fillRect(0,0,vtCanvas.width,vtCanvas.height);
+        const w = vtCanvas.width;
+        const h = vtCanvas.height;
+
+        vtCtx.strokeStyle="#777";
+        vtCtx.lineWidth=1;
+        vtCtx.beginPath();
+        vtCtx.moveTo(40, 20);
+        vtCtx.lineTo(40, h-20);
+        vtCtx.lineTo(w-10, h-20);
+        vtCtx.stroke();
+        vtCtx.fillStyle="#aaa";
+        vtCtx.font="12px sans-serif";
+        vtCtx.fillText("t", w-15, h-25);
+        vtCtx.fillText("v", 22, 24);
+
+        if(vList.length<2) return;
+        vtCtx.strokeStyle="#22dd66";
+        vtCtx.lineWidth=2;
+        vtCtx.beginPath();
+        const vMax = 7.5;
+        for(let i=0;i<vList.length;i++){
+            const px = 40 + i*(w-50)/maxVPoints;
+            const py = (h-20) - (vList[i]/vMax)*(h-40);
+            i===0 ? vtCtx.moveTo(px,py):vtCtx.lineTo(px,py);
+        }
+        vtCtx.stroke();
+    }
+
+    function animate(){
+        if(!running) return;
+        physicsStep();
+        drawOrbit();
+        drawVtGraph();
+        animId = requestAnimationFrame(animate);
+    }
+
+    function reset(){
+        cancelAnimationFrame(animId);
+        running = false;
+        M = 0;
+        vList = [];
+        drawOrbit();
+        drawVtGraph();
+    }
+
+    btnStart.onclick = ()=>{
+        if(running) return;
+        running = true;
+        animate();
+    }
+    btnPause.onclick = ()=>{
+        running = false;
+        cancelAnimationFrame(animId);
+    }
+    btnReset.onclick = reset;
+
+    reset();
+</script>
+</body>
+</html>

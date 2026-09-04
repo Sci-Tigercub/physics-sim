@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>浮力原理演示｜鸡蛋沉浮</title>
+<style>
+*{
+  box-sizing: border-box;
+  font-family: "Microsoft Yahei", sans-serif;
+}
+body{
+  background: #f4f7fa;
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+h1{
+  text-align: center;
+  color: #2c3e50;
+  font-size: 22px;
+}
+.container{
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.08);
+}
+.demo-area{
+  width: 220px;
+  height: 400px;
+  border: 3px solid #666;
+  border-radius: 0 0 12px 12px;
+  margin: 0 auto 20px;
+  position: relative;
+  overflow: hidden;
+}
+.water{
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  height: 280px;
+  background: rgba(80, 160, 255, .6);
+}
+.egg{
+  width: 40px;
+  height: 50px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 10px;
+  transition: bottom 1.3s ease;
+  box-shadow: 0 0 4px #888;
+  z-index: 4;
+}
+/*浮力箭头，层级高于鸡蛋，不会被遮挡*/
+.buoyancy-arrow{
+  position:absolute;
+  left:50%;
+  transform: translateX(-50%);
+  bottom:0;
+  width:4px;
+  background:#e53935;
+  z-index:5;
+  transition:height 0.8s ease, bottom 0.8s ease;
+  transform-origin:bottom center;
+  border-radius:2px 2px 0 0;
+}
+.buoyancy-arrow::after{
+  content:"";
+  position:absolute;
+  top:-10px;
+  left:50%;
+  transform: translateX(-50%);
+  border-left:6px solid transparent;
+  border-right:6px solid transparent;
+  border-bottom:10px solid #e53935;
+}
+.salt-particle{
+  position:absolute;
+  width:7px;
+  height:7px;
+  background:#ffc107;
+  border-radius:50%;
+  opacity:0.7;
+}
+.spoon{
+  position: absolute;
+  right: -60px;
+  top: 80px;
+  width: 48px;
+  height: 16px;
+  background: linear-gradient(to right, #ddd, #bbb);
+  border-radius: 8px 24px 24px 8px;
+  z-index: 6;
+  transition: right .8s ease-in-out, top .8s ease-in-out;
+}
+.spoon::after{
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  background: #f0f0f0;
+  border-radius: 50%;
+}
+.salt-grain{
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #fff;
+  border-radius: 50%;
+  z-index: 7;
+  animation: fall .7s ease-in forwards;
+}
+@keyframes fall{
+  0%{
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100%{
+    opacity: 0;
+    transform: translateY(160px);
+  }
+}
+.control{
+  margin: 16px 0;
+}
+.btn-group{
+  margin: 12px 0;
+  display: flex;
+  gap: 12px;
+}
+button{
+  padding: 8px 16px;
+  font-size: 16px;
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  background: #4088dd;
+  color: white;
+}
+button:disabled{
+  background: #999;
+  cursor: not-allowed;
+}
+.text-info{
+  margin-top: 20px;
+  line-height: 1.7;
+  color: #333;
+}
+.state{
+  font-weight: bold;
+  font-size: 17px;
+  margin: 8px 0;
+  color: #d03030;
+}
+.saturate-tip{
+  color:#c00;
+  font-weight:bold;
+  margin-top:6px;
+  display:none;
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>浮力原理动态演示 —— 鸡蛋沉浮</h1>
+
+  <div class="demo-area" id="demoArea">
+    <div class="water" id="water"></div>
+    <div class="egg" id="egg"></div>
+    <div class="buoyancy-arrow" id="buoyArrow"></div>
+    <div class="spoon" id="spoon"></div>
+  </div>
+
+  <div class="control">
+    <label>盐水浓度：<span id="val">0</span>%（上限：18%）</label>
+    <div class="btn-group">
+      <button id="addSaltBtn">点击加盐</button>
+      <button id="resetBtn">重置实验</button>
+    </div>
+    <div class="saturate-tip" id="satTip">⚠️已到达浓度上限</div>
+  </div>
+
+  <div class="state" id="state">当前状态：鸡蛋沉在杯底，F浮 ＜ G</div>
+
+  <div class="text-info">
+    <p><strong>完整物理过程：</strong></p>
+    <p>① ρ液＜ρ蛋：F浮＜G，鸡蛋下沉，静止沉底</p>
+    <p>② ρ液＝ρ蛋：<b>临界悬浮</b>，全部浸没，F浮＝G</p>
+    <p>③ ρ液＞ρ蛋：完全浸没时 F浮＞G，鸡蛋上浮到水面</p>
+    <p>④ 到达水面后，鸡蛋部分露出水面，V排减小，稳定漂浮，F浮＝G，此后继续增大盐水浓度，浮力大小保持不变。</p>
+    <p>★重点：鸡蛋漂浮之后，浮力始终等于鸡蛋重力，不再随盐水浓度变大而增大。</p>
+    <p>🔴红色箭头：浮力大小；🟡黄色小点：溶解的盐分子</p>
+    <p>说明：10%~12%区间每次增加0.5%浓度，精细观察悬浮临界点</p>
+  </div>
+</div>
+
+<script>
+const demoArea = document.getElementById("demoArea");
+const spoon = document.getElementById("spoon");
+const egg = document.getElementById("egg");
+const stateText = document.getElementById("state");
+const valText = document.getElementById("val");
+const addSaltBtn = document.getElementById("addSaltBtn");
+const resetBtn = document.getElementById("resetBtn");
+const buoyArrow = document.getElementById("buoyArrow");
+const satTip = document.getElementById("satTip");
+
+//浓度上限改为18
+const MAX_SAT = 18;
+const FLOAT_CRITICAL = 11;
+let saltRate = 0;
+
+function clearSaltParticles(){
+  document.querySelectorAll(".salt-particle").forEach(p=>p.remove());
+}
+
+function generateSaltParticles(count){
+  clearSaltParticles();
+  for(let i=0;i<count;i++){
+    let p = document.createElement("div");
+    p.className = "salt-particle";
+    p.style.left = (Math.random() * 200)+"px";
+    p.style.bottom = (Math.random() * 260)+"px";
+    demoArea.appendChild(p);
+  }
+}
+
+function refreshView(){
+  valText.textContent = saltRate.toFixed(1);
+
+  if(saltRate >= MAX_SAT){
+    satTip.style.display = "block";
+    addSaltBtn.disabled = true;
+  }else{
+    satTip.style.display = "none";
+    addSaltBtn.disabled = false;
+  }
+
+  let particleCount = Math.round( saltRate / MAX_SAT * 70 );
+  generateSaltParticles(particleCount);
+
+  let bottom, state;
+  if(saltRate < FLOAT_CRITICAL){
+    bottom = 10;
+    state = "当前状态：鸡蛋沉底，完全浸没，F浮 ＜ G";
+    //沉底、完全浸没，浮力随盐水浓度增大
+    let arrowHeight = 5 + (saltRate / MAX_SAT) * 75;
+    buoyArrow.style.height = arrowHeight + "px";
+  }else if(Math.abs(saltRate - FLOAT_CRITICAL) < 0.4){
+    bottom = 130;
+    state = "【临界悬浮】ρ液 = ρ蛋，全部浸没，F浮 = G，静止在水中";
+    let arrowHeight = 5 + (FLOAT_CRITICAL / MAX_SAT) * 75;
+    buoyArrow.style.height = arrowHeight + "px";
+  }else{
+    bottom = 255;
+    state = "鸡蛋漂浮在液面，F浮 = G；继续加盐，浮力大小保持不变";
+    //漂浮之后浮力不再变化，箭头长度锁定
+    let arrowHeight = 5 + (FLOAT_CRITICAL / MAX_SAT) * 75;
+    buoyArrow.style.height = arrowHeight + "px";
+  }
+  egg.style.bottom = bottom + "px";
+  //箭头起点固定在鸡蛋中心（鸡蛋高50，中心距离鸡蛋底部25px）
+  buoyArrow.style.bottom = (bottom + 25) + "px";
+  stateText.innerText = state;
+}
+
+function createSaltGrain(){
+  const grain = document.createElement("div");
+  grain.className = "salt-grain";
+  const startX = demoArea.offsetWidth - 70 + Math.random() * 30;
+  const startY = 90 + Math.random() * 10;
+  grain.style.left = startX + "px";
+  grain.style.top = startY + "px";
+  demoArea.appendChild(grain);
+  setTimeout(() => {
+    grain.remove();
+  }, 700);
+}
+
+function pourSaltAnimation(){
+  return new Promise(resolve => {
+    addSaltBtn.disabled = true;
+    spoon.style.right = "60px";
+    spoon.style.top = "90px";
+    setTimeout(() => {
+      for(let i = 0; i < 12; i++){
+        setTimeout(() => createSaltGrain(), i * 50);
+      }
+    }, 300);
+    setTimeout(() => {
+      spoon.style.right = "-60px";
+      spoon.style.top = "80px";
+      resolve();
+    }, 1200);
+  });
+}
+
+addSaltBtn.onclick = async function(){
+  if(saltRate >= MAX_SAT) return;
+  await pourSaltAnimation();
+  //分段步长
+  let step;
+  if(saltRate < 10){
+    step = 2;
+  }else if(saltRate >= 10 && saltRate <12){
+    step = 0.5;
+  }else{
+    step = 2;
+  }
+  saltRate = Math.min(saltRate + step, MAX_SAT);
+  refreshView();
+  if(saltRate < MAX_SAT){
+    addSaltBtn.disabled = false;
+  }
+};
+
+resetBtn.onclick = function(){
+  saltRate = 0;
+  spoon.style.right = "-60px";
+  spoon.style.top = "80px";
+  refreshView();
+};
+
+refreshView();
+</script>
+</body>
+</html>
